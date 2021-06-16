@@ -6,6 +6,7 @@ shipit_fbcode_builder = true
 
 [git]
 repo_url = https://github.com/facebookincubator/fb303.git
+rev = 3f886877951c08e8a1eb63f74b782274fa9aa4f1
 
 [build]
 builder = cmake

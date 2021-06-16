@@ -1,0 +1,2451 @@
+From afeb00e19bbbf86557ea15b5c7ff7883db89d36f Mon Sep 17 00:00:00 2001
+From: Matthew Edwards <matthewedwards@fb.com>
+Date: Sun, 27 Jun 2021 20:53:08 +0000
+Subject: [PATCH] folly TG
+
+---
+ 0001-folly-TG.patch                           |   0
+ CMake/FollyConfigChecks.cmake                 |   3 +-
+ CMakeLists.txt                                |   1 +
+ build/fbcode_builder/manifests/libtool        |  22 -
+ folly/CMakeLists.txt                          |   2 +-
+ folly/Expected.h                              |  12 +-
+ folly/Optional.h                              |  12 +-
+ folly/Portability.h                           |   6 +-
+ folly/docs/Makefile                           |  33 --
+ folly/experimental/coro/AsyncGenerator.h      |  22 +-
+ folly/experimental/coro/Baton.h               |   6 +-
+ folly/experimental/coro/BlockingWait.h        |  14 +-
+ folly/experimental/coro/Collect.h             |   2 +-
+ folly/experimental/coro/CurrentExecutor.h     |   2 +-
+ folly/experimental/coro/DetachOnCancel.h      |   2 +-
+ folly/experimental/coro/Generator.h           |  20 +-
+ folly/experimental/coro/Mutex.h               |   6 +-
+ folly/experimental/coro/SharedMutex.h         |   8 +-
+ folly/experimental/coro/Task.h                |  24 +-
+ folly/experimental/coro/TimedWait.h           |   2 +-
+ folly/experimental/coro/Traits.h              |  12 +-
+ folly/experimental/coro/Utils.h               |   6 +-
+ folly/experimental/coro/ViaIfAsync.h          |  34 +-
+ folly/experimental/coro/Wait.h                |   6 +-
+ folly/experimental/coro/detail/Barrier.h      |  14 +-
+ folly/experimental/coro/detail/BarrierTask.h  |  24 +-
+ folly/experimental/coro/detail/InlineTask.h   |  24 +-
+ .../coro/test/BlockingWaitTest.cpp            |   4 +-
+ .../coro/test/CoroBenchmarkAllocator.cpp      |  34 +-
+ .../coro/test/CoroBenchmarkNRVO.cpp           |  24 +-
+ folly/experimental/coro/test/CoroTest.cpp     |   2 +-
+ .../experimental/coro/test/InlineTaskTest.cpp |   6 +-
+ folly/experimental/coro/test/TraitsTest.cpp   |  16 +-
+ folly/fibers/Baton.h                          |   6 +-
+ folly/futures/Future.h                        |   4 +-
+ folly/lang/PropagateConst.h                   |   2 +-
+ folly/memory/MemoryResource.h                 |   2 +-
+ .../function_benchmark/benchmark_impl.cpp     |  59 ---
+ .../test/function_benchmark/benchmark_impl.h  |  53 --
+ folly/test/function_benchmark/main.cpp        | 470 ------------------
+ .../function_benchmark/test_functions.cpp     |  75 ---
+ .../test/function_benchmark/test_functions.h  |  67 ---
+ 42 files changed, 183 insertions(+), 960 deletions(-)
+ create mode 100644 0001-folly-TG.patch
+ delete mode 100644 build/fbcode_builder/manifests/libtool
+ delete mode 100644 folly/docs/Makefile
+ delete mode 100644 folly/test/function_benchmark/benchmark_impl.cpp
+ delete mode 100644 folly/test/function_benchmark/benchmark_impl.h
+ delete mode 100644 folly/test/function_benchmark/main.cpp
+ delete mode 100644 folly/test/function_benchmark/test_functions.cpp
+ delete mode 100644 folly/test/function_benchmark/test_functions.h
+
+diff --git a/0001-folly-TG.patch b/0001-folly-TG.patch
+new file mode 100644
+index 000000000..e69de29bb
+diff --git a/CMake/FollyConfigChecks.cmake b/CMake/FollyConfigChecks.cmake
+index 6b8b308c7..20ca5fea2 100644
+--- a/CMake/FollyConfigChecks.cmake
++++ b/CMake/FollyConfigChecks.cmake
+@@ -43,7 +43,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+     COMPILER_HAS_W_SHADOW_COMPATIBLE_LOCAL)
+   if (COMPILER_HAS_W_SHADOW_LOCAL AND COMPILER_HAS_W_SHADOW_COMPATIBLE_LOCAL)
+     set(FOLLY_HAVE_SHADOW_LOCAL_WARNINGS ON)
+-    list(APPEND FOLLY_CXX_FLAGS -Wshadow-compatible-local)
+   endif()
+ 
+   CHECK_CXX_COMPILER_FLAG(-Wnoexcept-type COMPILER_HAS_W_NOEXCEPT_TYPE)
+@@ -76,6 +75,8 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+   endif()
+ endif()
+ 
++list(APPEND FOLLY_CXX_FLAGS -fcoroutines)
++
+ set(FOLLY_ORIGINAL_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+ string(REGEX REPLACE
+   "-std=(c|gnu)\\+\\+.."
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c57ba69fa..a527099cf 100755
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -457,6 +457,7 @@ option(BUILD_TESTS "If enabled, compile the tests." OFF)
+ option(BUILD_BROKEN_TESTS "If enabled, compile tests that are known to be broken." OFF)
+ option(BUILD_HANGING_TESTS "If enabled, compile tests that are known to hang." OFF)
+ option(BUILD_SLOW_TESTS "If enabled, compile tests that take a while to run in debug mode." OFF)
++set(BUILD_TESTS OFF)
+ if (BUILD_TESTS)
+   option(USE_CMAKE_GOOGLE_TEST_INTEGRATION "If enabled, use the google test integration included in CMake." ON)
+   find_package(GMock MODULE REQUIRED)
+diff --git a/build/fbcode_builder/manifests/libtool b/build/fbcode_builder/manifests/libtool
+deleted file mode 100644
+index 1ec99b5f4..000000000
+--- a/build/fbcode_builder/manifests/libtool
++++ /dev/null
+@@ -1,22 +0,0 @@
+-[manifest]
+-name = libtool
+-
+-[rpms]
+-libtool
+-
+-[debs]
+-libtool
+-
+-[download]
+-url = http://ftp.gnu.org/gnu/libtool/libtool-2.4.6.tar.gz
+-sha256 = e3bd4d5d3d025a36c21dd6af7ea818a2afcd4dfc1ea5a17b39d7854bcd0c06e3
+-
+-[build]
+-builder = autoconf
+-subdir = libtool-2.4.6
+-
+-[dependencies]
+-automake
+-
+-[autoconf.args]
+---enable-ltdl-install
+diff --git a/folly/CMakeLists.txt b/folly/CMakeLists.txt
+index 08de7daf2..231a37c27 100644
+--- a/folly/CMakeLists.txt
++++ b/folly/CMakeLists.txt
+@@ -27,7 +27,7 @@ install(
+ )
+ 
+ add_subdirectory(experimental/exception_tracer)
+-add_subdirectory(logging/example)
++#add_subdirectory(logging/example)
+ 
+ if (PYTHON_EXTENSIONS)
+   # Create tree of symbolic links in structure required for successful
+diff --git a/folly/Expected.h b/folly/Expected.h
+index 3434720d6..69f252537 100644
+--- a/folly/Expected.h
++++ b/folly/Expected.h
+@@ -1407,7 +1407,7 @@ bool operator>(const Value& other, const Expected<Value, Error>&) = delete;
+ // Enable the use of folly::Expected with `co_await`
+ // Inspired by https://github.com/toby-allsopp/coroutine_monad
+ #if FOLLY_HAS_COROUTINES
+-#include <experimental/coroutine>
++#include <coroutine>
+ 
+ namespace folly {
+ namespace expected_detail {
+@@ -1442,10 +1442,10 @@ struct Promise {
+   PromiseReturn<Value, Error> get_return_object() noexcept {
+     return *this;
+   }
+-  std::experimental::suspend_never initial_suspend() const noexcept {
++  std::suspend_never initial_suspend() const noexcept {
+     return {};
+   }
+-  std::experimental::suspend_never final_suspend() const noexcept {
++  std::suspend_never final_suspend() const noexcept {
+     return {};
+   }
+   template <typename U>
+@@ -1474,7 +1474,7 @@ struct Awaitable {
+ 
+   // Explicitly only allow suspension into a Promise
+   template <typename U>
+-  void await_suspend(std::experimental::coroutine_handle<Promise<U, Error>> h) {
++  void await_suspend(std::coroutine_handle<Promise<U, Error>> h) {
+     *h.promise().value_ = makeUnexpected(std::move(o_.error()));
+     // Abort the rest of the coroutine. resume() is not going to be called
+     h.destroy();
+@@ -1491,11 +1491,11 @@ expected_detail::Awaitable<Value, Error>
+ 
+ // This makes folly::Expected<Value> useable as a coroutine return type...
+ namespace std {
+-namespace experimental {
++//namespace experimental {
+ template <typename Value, typename Error, typename... Args>
+ struct coroutine_traits<folly::Expected<Value, Error>, Args...> {
+   using promise_type = folly::expected_detail::Promise<Value, Error>;
+ };
+-} // namespace experimental
++//} // namespace experimental
+ } // namespace std
+ #endif // FOLLY_HAS_COROUTINES
+diff --git a/folly/Optional.h b/folly/Optional.h
+index 3172313fb..bdb0e514f 100644
+--- a/folly/Optional.h
++++ b/folly/Optional.h
+@@ -597,7 +597,7 @@ FOLLY_NAMESPACE_STD_END
+ // Enable the use of folly::Optional with `co_await`
+ // Inspired by https://github.com/toby-allsopp/coroutine_monad
+ #if FOLLY_HAS_COROUTINES
+-#include <experimental/coroutine>
++#include <coroutine>
+ 
+ namespace folly {
+ namespace detail {
+@@ -632,10 +632,10 @@ struct OptionalPromise {
+   OptionalPromiseReturn<Value> get_return_object() noexcept {
+     return *this;
+   }
+-  std::experimental::suspend_never initial_suspend() const noexcept {
++  std::suspend_never initial_suspend() const noexcept {
+     return {};
+   }
+-  std::experimental::suspend_never final_suspend() const noexcept {
++  std::suspend_never final_suspend() const noexcept {
+     return {};
+   }
+   template <typename U>
+@@ -662,7 +662,7 @@ struct OptionalAwaitable {
+   // Explicitly only allow suspension into an OptionalPromise
+   template <typename U>
+   void await_suspend(
+-      std::experimental::coroutine_handle<OptionalPromise<U>> h) const {
++      std::coroutine_handle<OptionalPromise<U>> h) const {
+     // Abort the rest of the coroutine. resume() is not going to be called
+     h.destroy();
+   }
+@@ -678,11 +678,11 @@ detail::OptionalAwaitable<Value>
+ 
+ // This makes folly::Optional<Value> useable as a coroutine return type..
+ namespace std {
+-namespace experimental {
++//namespace experimental {
+ template <typename Value, typename... Args>
+ struct coroutine_traits<folly::Optional<Value>, Args...> {
+   using promise_type = folly::detail::OptionalPromise<Value>;
+ };
+-} // namespace experimental
++//} // namespace experimental
+ } // namespace std
+ #endif // FOLLY_HAS_COROUTINES
+diff --git a/folly/Portability.h b/folly/Portability.h
+index f1a3e9204..9db01929c 100644
+--- a/folly/Portability.h
++++ b/folly/Portability.h
+@@ -512,14 +512,14 @@ constexpr auto kCpplibVer = 0;
+ #if __cplusplus >= 201703L
+ // folly::coro requires C++17 support
+ #if defined(_WIN32) && defined(__clang__)
+-// LLVM and MSVC coroutines are ABI incompatible and <experimental/coroutine>
++// LLVM and MSVC coroutines are ABI incompatible and <coroutine>
+ // is the MSVC implementation on windows, so we *don't* have coroutines.
+ //
+ // Worse, if we define FOLLY_HAS_COROUTINES 1 we will include
+-// <experimental/coroutine> which will conflict with anyone who wants to load
++// <coroutine> which will conflict with anyone who wants to load
+ // the LLVM implementation of coroutines on Windows.
+ #define FOLLY_HAS_COROUTINES 0
+-#elif __cpp_coroutines >= 201703L && __has_include(<experimental/coroutine>)
++#elif 1 // && __has_include(<coroutine>)
+ #define FOLLY_HAS_COROUTINES 1
+ // This is mainly to workaround bugs triggered by LTO, when stack allocated
+ // variables in await_suspend end up on a coroutine frame.
+diff --git a/folly/docs/Makefile b/folly/docs/Makefile
+deleted file mode 100644
+index 97be3da96..000000000
+--- a/folly/docs/Makefile
++++ /dev/null
+@@ -1,33 +0,0 @@
+-SOURCES=$(wildcard *.md)
+-PDF=$(SOURCES:%.md=%.pdf)
+-HTML=$(SOURCES:%.md=%.html)
+-INSTALL=install -c -m 644
+-PYTHON=python
+-PANDOCARGS=-s
+-PANDOC=/usr/bin/pandoc
+-
+-export LANGUAGE=C
+-export LC_ALL=C
+-
+-all: html index.html
+-
+-pdf: $(PDF)
+-
+-html: $(HTML)
+-
+-# This needs pandoc 1.9 or later to work
+-%.pdf: %.md
+-	$(PANDOC) -f markdown -o $*.pdf $*.md
+-
+-%.html: %.md style.css
+-	$(PANDOC) $(PANDOCARGS) -H style.css -f markdown -t html --toc -o $*.html $*.md
+-
+-docs.md: $(SOURCES) style.css
+-	$(PANDOC) $(PANDOCARGS) -H style.css -f markdown -t markdown --toc -o $@ *.md
+-
+-index.html: $(SOURCES) style.css
+-	$(PANDOC) $(PANDOCARGS) -H style.css -f markdown -t html --toc -o $@ *.md
+-
+-
+-clean:
+-	$(RM) $(PDF) $(HTML) index.html
+diff --git a/folly/experimental/coro/AsyncGenerator.h b/folly/experimental/coro/AsyncGenerator.h
+index 1a753a726..8fed2dfa5 100644
+--- a/folly/experimental/coro/AsyncGenerator.h
++++ b/folly/experimental/coro/AsyncGenerator.h
+@@ -28,7 +28,7 @@
+ 
+ #include <glog/logging.h>
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <iterator>
+ #include <type_traits>
+ 
+@@ -47,8 +47,8 @@ class AsyncGeneratorPromise {
+     bool await_ready() noexcept {
+       return false;
+     }
+-    std::experimental::coroutine_handle<> await_suspend(
+-        std::experimental::coroutine_handle<AsyncGeneratorPromise> h) noexcept {
++    std::coroutine_handle<> await_suspend(
++        std::coroutine_handle<AsyncGeneratorPromise> h) noexcept {
+       return h.promise().continuation_;
+     }
+     void await_resume() noexcept {}
+@@ -71,7 +71,7 @@ class AsyncGeneratorPromise {
+ 
+   AsyncGenerator<Reference, Value> get_return_object() noexcept;
+ 
+-  std::experimental::suspend_always initial_suspend() noexcept {
++  std::suspend_always initial_suspend() noexcept {
+     return {};
+   }
+ 
+@@ -149,7 +149,7 @@ class AsyncGeneratorPromise {
+   }
+ 
+   void setContinuation(
+-      std::experimental::coroutine_handle<> continuation) noexcept {
++      std::coroutine_handle<> continuation) noexcept {
+     continuation_ = continuation;
+   }
+ 
+@@ -183,7 +183,7 @@ class AsyncGeneratorPromise {
+     hasCancelTokenOverride_ = false;
+   }
+ 
+-  std::experimental::coroutine_handle<> continuation_;
++  std::coroutine_handle<> continuation_;
+   folly::Executor::KeepAlive<> executor_;
+   folly::CancellationToken cancelToken_;
+   std::exception_ptr exception_;
+@@ -287,7 +287,7 @@ class FOLLY_NODISCARD AsyncGenerator {
+   using promise_type = detail::AsyncGeneratorPromise<Reference, Value>;
+ 
+  private:
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+  public:
+   using value_type = Value;
+@@ -425,7 +425,7 @@ class FOLLY_NODISCARD AsyncGenerator {
+     }
+ 
+     handle_t await_suspend(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       auto& promise = coro_.promise();
+       promise.setContinuation(continuation);
+       promise.clearValue();
+@@ -494,10 +494,10 @@ class FOLLY_NODISCARD AsyncGenerator {
+   friend class detail::AsyncGeneratorPromise<Reference, Value>;
+ 
+   explicit AsyncGenerator(
+-      std::experimental::coroutine_handle<promise_type> coro) noexcept
++      std::coroutine_handle<promise_type> coro) noexcept
+       : coro_(coro) {}
+ 
+-  std::experimental::coroutine_handle<promise_type> coro_;
++  std::coroutine_handle<promise_type> coro_;
+ };
+ 
+ namespace detail {
+@@ -505,7 +505,7 @@ namespace detail {
+ template <typename Reference, typename Value>
+ AsyncGenerator<Reference, Value>
+ AsyncGeneratorPromise<Reference, Value>::get_return_object() noexcept {
+-  return AsyncGenerator<Reference, Value>{std::experimental::coroutine_handle<
++  return AsyncGenerator<Reference, Value>{std::coroutine_handle<
+       AsyncGeneratorPromise<Reference, Value>>::from_promise(*this)};
+ }
+ 
+diff --git a/folly/experimental/coro/Baton.h b/folly/experimental/coro/Baton.h
+index 2fc47adef..bff7dca4a 100644
+--- a/folly/experimental/coro/Baton.h
++++ b/folly/experimental/coro/Baton.h
+@@ -17,7 +17,7 @@
+ #pragma once
+ 
+ #include <atomic>
+-#include <experimental/coroutine>
++#include <coroutine>
+ 
+ namespace folly {
+ namespace coro {
+@@ -95,7 +95,7 @@ class Baton {
+     }
+ 
+     bool await_suspend(
+-        std::experimental::coroutine_handle<> awaitingCoroutine) noexcept {
++        std::coroutine_handle<> awaitingCoroutine) noexcept {
+       awaitingCoroutine_ = awaitingCoroutine;
+       return baton_.waitImpl(this);
+     }
+@@ -106,7 +106,7 @@ class Baton {
+     friend class Baton;
+ 
+     const Baton& baton_;
+-    std::experimental::coroutine_handle<> awaitingCoroutine_;
++    std::coroutine_handle<> awaitingCoroutine_;
+     WaitOperation* next_;
+   };
+ 
+diff --git a/folly/experimental/coro/BlockingWait.h b/folly/experimental/coro/BlockingWait.h
+index 27d6b22fb..effe1d576 100644
+--- a/folly/experimental/coro/BlockingWait.h
++++ b/folly/experimental/coro/BlockingWait.h
+@@ -28,7 +28,7 @@
+ 
+ #include <cassert>
+ #include <exception>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ #include <utility>
+ 
+@@ -47,7 +47,7 @@ class BlockingWaitPromiseBase {
+     }
+     template <typename Promise>
+     void await_suspend(
+-        std::experimental::coroutine_handle<Promise> coro) noexcept {
++        std::coroutine_handle<Promise> coro) noexcept {
+       BlockingWaitPromiseBase& promise = coro.promise();
+       promise.baton_.post();
+     }
+@@ -65,7 +65,7 @@ class BlockingWaitPromiseBase {
+     ::folly_coro_async_free(ptr, size);
+   }
+ 
+-  std::experimental::suspend_always initial_suspend() {
++  std::suspend_always initial_suspend() {
+     return {};
+   }
+ 
+@@ -187,7 +187,7 @@ template <typename T>
+ class BlockingWaitTask {
+  public:
+   using promise_type = BlockingWaitPromise<T>;
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+   explicit BlockingWaitTask(handle_t coro) noexcept : coro_(coro) {}
+ 
+@@ -241,20 +241,20 @@ template <typename T>
+ inline BlockingWaitTask<T>
+ BlockingWaitPromise<T>::get_return_object() noexcept {
+   return BlockingWaitTask<T>{
+-      std::experimental::coroutine_handle<BlockingWaitPromise<T>>::from_promise(
++      std::coroutine_handle<BlockingWaitPromise<T>>::from_promise(
+           *this)};
+ }
+ 
+ template <typename T>
+ inline BlockingWaitTask<T&>
+ BlockingWaitPromise<T&>::get_return_object() noexcept {
+-  return BlockingWaitTask<T&>{std::experimental::coroutine_handle<
++  return BlockingWaitTask<T&>{std::coroutine_handle<
+       BlockingWaitPromise<T&>>::from_promise(*this)};
+ }
+ 
+ inline BlockingWaitTask<void>
+ BlockingWaitPromise<void>::get_return_object() noexcept {
+-  return BlockingWaitTask<void>{std::experimental::coroutine_handle<
++  return BlockingWaitTask<void>{std::coroutine_handle<
+       BlockingWaitPromise<void>>::from_promise(*this)};
+ }
+ 
+diff --git a/folly/experimental/coro/Collect.h b/folly/experimental/coro/Collect.h
+index 3704b9b7a..1a01fae9f 100644
+--- a/folly/experimental/coro/Collect.h
++++ b/folly/experimental/coro/Collect.h
+@@ -24,7 +24,7 @@
+ 
+ #include <range/v3/view/move.hpp>
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <functional>
+ #include <iterator>
+ #include <tuple>
+diff --git a/folly/experimental/coro/CurrentExecutor.h b/folly/experimental/coro/CurrentExecutor.h
+index f5223eb7e..90ca7a0cb 100644
+--- a/folly/experimental/coro/CurrentExecutor.h
++++ b/folly/experimental/coro/CurrentExecutor.h
+@@ -65,7 +65,7 @@ class co_reschedule_on_current_executor_ {
+     }
+ 
+     FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES void await_suspend(
+-        std::experimental::coroutine_handle<> coro) {
++        std::coroutine_handle<> coro) {
+       executor_->add([coro, ctx = RequestContext::saveContext()]() mutable {
+         RequestContextScopeGuard contextScope{std::move(ctx)};
+         coro.resume();
+diff --git a/folly/experimental/coro/DetachOnCancel.h b/folly/experimental/coro/DetachOnCancel.h
+index a81bca018..bf3cd7958 100644
+--- a/folly/experimental/coro/DetachOnCancel.h
++++ b/folly/experimental/coro/DetachOnCancel.h
+@@ -16,7 +16,7 @@
+ 
+ #pragma once
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ #include <folly/experimental/coro/Baton.h>
+diff --git a/folly/experimental/coro/Generator.h b/folly/experimental/coro/Generator.h
+index a3ff5a599..7bab4a710 100644
+--- a/folly/experimental/coro/Generator.h
++++ b/folly/experimental/coro/Generator.h
+@@ -18,7 +18,7 @@
+ 
+ #include <cassert>
+ #include <exception>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ #include <utility>
+ 
+@@ -43,11 +43,11 @@ class Generator {
+       return Generator<T>{*this};
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() noexcept {
++    std::suspend_always initial_suspend() noexcept {
+       return {};
+     }
+ 
+-    std::experimental::suspend_always final_suspend() noexcept {
++    std::suspend_always final_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -57,12 +57,12 @@ class Generator {
+ 
+     void return_void() noexcept {}
+ 
+-    std::experimental::suspend_always yield_value(T& value) noexcept {
++    std::suspend_always yield_value(T& value) noexcept {
+       m_value = std::addressof(value);
+       return {};
+     }
+ 
+-    std::experimental::suspend_always yield_value(T&& value) noexcept {
++    std::suspend_always yield_value(T&& value) noexcept {
+       m_value = std::addressof(value);
+       return {};
+     }
+@@ -80,7 +80,7 @@ class Generator {
+         }
+ 
+         void await_suspend(
+-            std::experimental::coroutine_handle<promise_type>) noexcept {}
++            std::coroutine_handle<promise_type>) noexcept {}
+ 
+         void await_resume() {
+           if (this->m_childPromise != nullptr) {
+@@ -111,10 +111,10 @@ class Generator {
+     // Don't allow any use of 'co_await' inside the Generator
+     // coroutine.
+     template <typename U>
+-    std::experimental::suspend_never await_transform(U&& value) = delete;
++    std::suspend_never await_transform(U&& value) = delete;
+ 
+     void destroy() noexcept {
+-      std::experimental::coroutine_handle<promise_type>::from_promise(*this)
++      std::coroutine_handle<promise_type>::from_promise(*this)
+           .destroy();
+     }
+ 
+@@ -125,7 +125,7 @@ class Generator {
+     }
+ 
+     bool is_complete() noexcept {
+-      return std::experimental::coroutine_handle<promise_type>::from_promise(
++      return std::coroutine_handle<promise_type>::from_promise(
+                  *this)
+           .done();
+     }
+@@ -150,7 +150,7 @@ class Generator {
+ 
+    private:
+     void resume() noexcept {
+-      std::experimental::coroutine_handle<promise_type>::from_promise(*this)
++      std::coroutine_handle<promise_type>::from_promise(*this)
+           .resume();
+     }
+ 
+diff --git a/folly/experimental/coro/Mutex.h b/folly/experimental/coro/Mutex.h
+index 7ffc473da..32ac2e901 100644
+--- a/folly/experimental/coro/Mutex.h
++++ b/folly/experimental/coro/Mutex.h
+@@ -20,7 +20,7 @@
+ #include <folly/experimental/coro/ViaIfAsync.h>
+ 
+ #include <atomic>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <mutex>
+ 
+ namespace folly {
+@@ -164,7 +164,7 @@ class Mutex {
+     }
+ 
+     bool await_suspend(
+-        std::experimental::coroutine_handle<> awaitingCoroutine) noexcept {
++        std::coroutine_handle<> awaitingCoroutine) noexcept {
+       awaitingCoroutine_ = awaitingCoroutine;
+       return mutex_.lockAsyncImpl(this);
+     }
+@@ -177,7 +177,7 @@ class Mutex {
+    private:
+     friend Mutex;
+ 
+-    std::experimental::coroutine_handle<> awaitingCoroutine_;
++    std::coroutine_handle<> awaitingCoroutine_;
+     LockAwaiter* next_;
+   };
+ 
+diff --git a/folly/experimental/coro/SharedMutex.h b/folly/experimental/coro/SharedMutex.h
+index d798b9ba0..62129fe39 100644
+--- a/folly/experimental/coro/SharedMutex.h
++++ b/folly/experimental/coro/SharedMutex.h
+@@ -18,7 +18,7 @@
+ 
+ #include <atomic>
+ #include <cassert>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <limits>
+ #include <mutex>
+ #include <utility>
+@@ -206,7 +206,7 @@ class SharedMutexFair {
+     SharedMutexFair* mutex_;
+     LockAwaiterBase* nextAwaiter_;
+     LockAwaiterBase* nextReader_;
+-    std::experimental::coroutine_handle<> continuation_;
++    std::coroutine_handle<> continuation_;
+     LockType lockType_;
+   };
+ 
+@@ -220,7 +220,7 @@ class SharedMutexFair {
+     }
+ 
+     FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES bool await_suspend(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       auto lock = mutex_->state_.contextualLock();
+ 
+       // Exclusive lock can only be acquired if it's currently unlocked.
+@@ -249,7 +249,7 @@ class SharedMutexFair {
+     }
+ 
+     FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES bool await_suspend(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       auto lock = mutex_->state_.contextualLock();
+ 
+       // shared-lock can be acquired if it's either unlocked or it is
+diff --git a/folly/experimental/coro/Task.h b/folly/experimental/coro/Task.h
+index a24e5b95e..1810118c7 100644
+--- a/folly/experimental/coro/Task.h
++++ b/folly/experimental/coro/Task.h
+@@ -17,7 +17,7 @@
+ #pragma once
+ 
+ #include <exception>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ #include <glog/logging.h>
+@@ -80,8 +80,8 @@ class TaskPromiseBase {
+     }
+ 
+     template <typename Promise>
+-    std::experimental::coroutine_handle<> await_suspend(
+-        std::experimental::coroutine_handle<Promise> coro) noexcept {
++    std::coroutine_handle<> await_suspend(
++        std::coroutine_handle<Promise> coro) noexcept {
+       TaskPromiseBase& promise = coro.promise();
+       return promise.continuation_;
+     }
+@@ -105,7 +105,7 @@ class TaskPromiseBase {
+     ::folly_coro_async_free(ptr, size);
+   }
+ 
+-  std::experimental::suspend_always initial_suspend() noexcept {
++  std::suspend_always initial_suspend() noexcept {
+     return {};
+   }
+ 
+@@ -143,7 +143,7 @@ class TaskPromiseBase {
+   template <typename T>
+   friend class folly::coro::Task;
+ 
+-  std::experimental::coroutine_handle<> continuation_;
++  std::coroutine_handle<> continuation_;
+   folly::Executor::KeepAlive<> executor_;
+   folly::CancellationToken cancelToken_;
+   bool hasCancelTokenOverride_ = false;
+@@ -249,7 +249,7 @@ class TaskPromise<void> : public TaskPromiseBase {
+ /// completes.
+ template <typename T>
+ class FOLLY_NODISCARD TaskWithExecutor {
+-  using handle_t = std::experimental::coroutine_handle<detail::TaskPromise<T>>;
++  using handle_t = std::coroutine_handle<detail::TaskPromise<T>>;
+   using StorageType = typename detail::TaskPromise<T>::StorageType;
+ 
+  public:
+@@ -362,7 +362,7 @@ class FOLLY_NODISCARD TaskWithExecutor {
+     }
+ 
+     FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES void await_suspend(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       auto& promise = coro_.promise();
+       DCHECK(!promise.continuation_);
+       DCHECK(promise.executor_);
+@@ -411,7 +411,7 @@ class FOLLY_NODISCARD TaskWithExecutor {
+       return false;
+     }
+ 
+-    auto await_suspend(std::experimental::coroutine_handle<> continuation) {
++    auto await_suspend(std::coroutine_handle<> continuation) {
+       auto& promise = coro_.promise();
+       DCHECK(!promise.continuation_);
+       DCHECK(promise.executor_);
+@@ -498,7 +498,7 @@ class FOLLY_NODISCARD Task {
+ 
+  private:
+   class Awaiter;
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+   void setExecutor(folly::Executor::KeepAlive<>&& e) noexcept {
+     coro_.promise().executor_ = std::move(e);
+@@ -585,7 +585,7 @@ class FOLLY_NODISCARD Task {
+     }
+ 
+     handle_t await_suspend(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       coro_.promise().continuation_ = continuation;
+       return coro_;
+     }
+@@ -613,12 +613,12 @@ class FOLLY_NODISCARD Task {
+ template <typename T>
+ Task<T> detail::TaskPromise<T>::get_return_object() noexcept {
+   return Task<T>{
+-      std::experimental::coroutine_handle<detail::TaskPromise<T>>::from_promise(
++      std::coroutine_handle<detail::TaskPromise<T>>::from_promise(
+           *this)};
+ }
+ 
+ inline Task<void> detail::TaskPromise<void>::get_return_object() noexcept {
+-  return Task<void>{std::experimental::coroutine_handle<
++  return Task<void>{std::coroutine_handle<
+       detail::TaskPromise<void>>::from_promise(*this)};
+ }
+ 
+diff --git a/folly/experimental/coro/TimedWait.h b/folly/experimental/coro/TimedWait.h
+index be6efdafb..1c74efb81 100644
+--- a/folly/experimental/coro/TimedWait.h
++++ b/folly/experimental/coro/TimedWait.h
+@@ -16,7 +16,7 @@
+ 
+ #pragma once
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ #include <folly/Optional.h>
+diff --git a/folly/experimental/coro/Traits.h b/folly/experimental/coro/Traits.h
+index c49cbce59..22f1d2c3a 100644
+--- a/folly/experimental/coro/Traits.h
++++ b/folly/experimental/coro/Traits.h
+@@ -18,7 +18,7 @@
+ 
+ #include <folly/Traits.h>
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ namespace folly {
+@@ -42,7 +42,7 @@ namespace detail {
+ 
+ template <typename T>
+ using _is_coroutine_handle =
+-    folly::detail::is_instantiation_of<std::experimental::coroutine_handle, T>;
++    folly::detail::is_instantiation_of<std::coroutine_handle, T>;
+ 
+ template <typename T>
+ struct _is_valid_await_suspend_return_type : folly::Disjunction<
+@@ -59,10 +59,10 @@ struct _is_valid_await_suspend_return_type : folly::Disjunction<
+ ///
+ /// An 'Awaiter' must have the following three methods.
+ /// - awaiter.await_ready() -> bool
+-/// - awaiter.await_suspend(std::experimental::coroutine_handle<void>()) ->
++/// - awaiter.await_suspend(std::coroutine_handle<void>()) ->
+ ///     void OR
+ ///     bool OR
+-///     std::experimental::coroutine_handle<T> for some T
++///     std::coroutine_handle<T> for some T
+ /// - awaiter.await_resume()
+ ///
+ /// Note that the requirement to accept coroutine_handle<void> rather than
+@@ -78,14 +78,14 @@ struct is_awaiter<
+     folly::void_t<
+         decltype(std::declval<T&>().await_ready()),
+         decltype(std::declval<T&>().await_suspend(
+-            std::declval<std::experimental::coroutine_handle<void>>())),
++            std::declval<std::coroutine_handle<void>>())),
+         decltype(std::declval<T&>().await_resume())>>
+     : folly::Conjunction<
+           std::is_same<bool, decltype(std::declval<T&>().await_ready())>,
+           detail::_is_valid_await_suspend_return_type<decltype(
+               std::declval<T&>().await_suspend(
+                   std::declval<
+-                      std::experimental::coroutine_handle<void>>()))>> {};
++                      std::coroutine_handle<void>>()))>> {};
+ 
+ template <typename T>
+ constexpr bool is_awaiter_v = is_awaiter<T>::value;
+diff --git a/folly/experimental/coro/Utils.h b/folly/experimental/coro/Utils.h
+index ac0cb815e..959fa5ded 100644
+--- a/folly/experimental/coro/Utils.h
++++ b/folly/experimental/coro/Utils.h
+@@ -16,7 +16,7 @@
+ 
+ #pragma once
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ namespace folly {
+@@ -33,7 +33,7 @@ class AwaitableReady {
+     return true;
+   }
+ 
+-  void await_suspend(std::experimental::coroutine_handle<>) noexcept {}
++  void await_suspend(std::coroutine_handle<>) noexcept {}
+ 
+   T await_resume() noexcept(std::is_nothrow_move_constructible<T>::value) {
+     return static_cast<T&&>(value_);
+@@ -50,7 +50,7 @@ class AwaitableReady<void> {
+   bool await_ready() noexcept {
+     return true;
+   }
+-  void await_suspend(std::experimental::coroutine_handle<>) noexcept {}
++  void await_suspend(std::coroutine_handle<>) noexcept {}
+   void await_resume() noexcept {}
+ };
+ } // namespace coro
+diff --git a/folly/experimental/coro/ViaIfAsync.h b/folly/experimental/coro/ViaIfAsync.h
+index 914a1a73e..e74369afa 100644
+--- a/folly/experimental/coro/ViaIfAsync.h
++++ b/folly/experimental/coro/ViaIfAsync.h
+@@ -16,7 +16,7 @@
+ 
+ #pragma once
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <memory>
+ 
+ #include <folly/Executor.h>
+@@ -55,11 +55,11 @@ class ViaCoroutine {
+ 
+     ViaCoroutine get_return_object() noexcept {
+       return ViaCoroutine{
+-          std::experimental::coroutine_handle<promise_type>::from_promise(
++          std::coroutine_handle<promise_type>::from_promise(
+               *this)};
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() noexcept {
++    std::suspend_always initial_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -69,7 +69,7 @@ class ViaCoroutine {
+           return false;
+         }
+         FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES void await_suspend(
+-            std::experimental::coroutine_handle<promise_type> coro) noexcept {
++            std::coroutine_handle<promise_type> coro) noexcept {
+           // Schedule resumption of the coroutine on the executor.
+           auto& promise = coro.promise();
+           if (!promise.context_) {
+@@ -94,7 +94,7 @@ class ViaCoroutine {
+     void return_void() noexcept {}
+ 
+     void setContinuation(
+-        std::experimental::coroutine_handle<> continuation) noexcept {
++        std::coroutine_handle<> continuation) noexcept {
+       DCHECK(!continuation_);
+       continuation_ = continuation;
+     }
+@@ -105,7 +105,7 @@ class ViaCoroutine {
+ 
+    private:
+     folly::Executor::KeepAlive<> executor_;
+-    std::experimental::coroutine_handle<> continuation_;
++    std::coroutine_handle<> continuation_;
+     std::shared_ptr<RequestContext> context_;
+   };
+ 
+@@ -125,8 +125,8 @@ class ViaCoroutine {
+     std::swap(coro_, other.coro_);
+   }
+ 
+-  std::experimental::coroutine_handle<> getWrappedCoroutine(
+-      std::experimental::coroutine_handle<> continuation) noexcept {
++  std::coroutine_handle<> getWrappedCoroutine(
++      std::coroutine_handle<> continuation) noexcept {
+     if (coro_) {
+       coro_.promise().setContinuation(continuation);
+       return coro_;
+@@ -135,8 +135,8 @@ class ViaCoroutine {
+     }
+   }
+ 
+-  std::experimental::coroutine_handle<> getWrappedCoroutineWithSavedContext(
+-      std::experimental::coroutine_handle<> continuation) noexcept {
++  std::coroutine_handle<> getWrappedCoroutineWithSavedContext(
++      std::coroutine_handle<> continuation) noexcept {
+     coro_.promise().setContext(RequestContext::saveContext());
+     return getWrappedCoroutine(continuation);
+   }
+@@ -152,17 +152,17 @@ class ViaCoroutine {
+   }
+ 
+   static ViaCoroutine createInline() noexcept {
+-    return ViaCoroutine{std::experimental::coroutine_handle<promise_type>{}};
++    return ViaCoroutine{std::coroutine_handle<promise_type>{}};
+   }
+ 
+  private:
+   friend class promise_type;
+ 
+   explicit ViaCoroutine(
+-      std::experimental::coroutine_handle<promise_type> coro) noexcept
++      std::coroutine_handle<promise_type> coro) noexcept
+       : coro_(coro) {}
+ 
+-  std::experimental::coroutine_handle<promise_type> coro_;
++  std::coroutine_handle<promise_type> coro_;
+ };
+ 
+ } // namespace detail
+@@ -171,7 +171,7 @@ template <typename Awaiter>
+ class ViaIfAsyncAwaiter {
+   using await_suspend_result_t =
+       decltype(std::declval<Awaiter&>().await_suspend(
+-          std::declval<std::experimental::coroutine_handle<>>()));
++          std::declval<std::coroutine_handle<>>()));
+ 
+  public:
+   static_assert(
+@@ -226,7 +226,7 @@ class ViaIfAsyncAwaiter {
+           folly::coro::detail::_is_coroutine_handle<Result>::value,
+           int> = 0>
+   auto
+-  await_suspend(std::experimental::coroutine_handle<> continuation) noexcept(
++  await_suspend(std::coroutine_handle<> continuation) noexcept(
+       noexcept(std::declval<Awaiter&>().await_suspend(continuation)))
+       -> Result {
+     return awaiter_.await_suspend(
+@@ -239,7 +239,7 @@ class ViaIfAsyncAwaiter {
+           !folly::coro::detail::_is_coroutine_handle<Result>::value,
+           int> = 0>
+   auto
+-  await_suspend(std::experimental::coroutine_handle<> continuation) noexcept(
++  await_suspend(std::coroutine_handle<> continuation) noexcept(
+       noexcept(std::declval<Awaiter&>().await_suspend(continuation)))
+       -> Result {
+     return awaiter_.await_suspend(
+@@ -415,7 +415,7 @@ class TryAwaiter {
+   }
+ 
+   template <typename Promise>
+-  auto await_suspend(std::experimental::coroutine_handle<Promise> coro) {
++  auto await_suspend(std::coroutine_handle<Promise> coro) {
+     return awaiter_.await_suspend(coro);
+   }
+ 
+diff --git a/folly/experimental/coro/Wait.h b/folly/experimental/coro/Wait.h
+index 84c6bd36c..14480df14 100644
+--- a/folly/experimental/coro/Wait.h
++++ b/folly/experimental/coro/Wait.h
+@@ -16,7 +16,7 @@
+ 
+ #pragma once
+ 
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <future>
+ 
+ namespace folly {
+@@ -38,11 +38,11 @@ class Wait {
+       return Wait(promise_.get_future());
+     }
+ 
+-    std::experimental::suspend_never initial_suspend() noexcept {
++    std::suspend_never initial_suspend() noexcept {
+       return {};
+     }
+ 
+-    std::experimental::suspend_never final_suspend() noexcept {
++    std::suspend_never final_suspend() noexcept {
+       return {};
+     }
+ 
+diff --git a/folly/experimental/coro/detail/Barrier.h b/folly/experimental/coro/detail/Barrier.h
+index c7989772e..e61b80e08 100644
+--- a/folly/experimental/coro/detail/Barrier.h
++++ b/folly/experimental/coro/detail/Barrier.h
+@@ -20,7 +20,7 @@
+ #include <cassert>
+ #include <cstddef>
+ #include <cstdint>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <utility>
+ 
+ namespace folly {
+@@ -46,7 +46,7 @@ class Barrier {
+     assert(SIZE_MAX - oldCount >= count);
+   }
+ 
+-  [[nodiscard]] std::experimental::coroutine_handle<> arrive() noexcept {
++  [[nodiscard]] std::coroutine_handle<> arrive() noexcept {
+     const std::size_t oldCount = count_.fetch_sub(1, std::memory_order_acq_rel);
+ 
+     // Invalid to call arrive() if you haven't previously incremented the
+@@ -56,7 +56,7 @@ class Barrier {
+     if (oldCount == 1) {
+       return std::exchange(continuation_, {});
+     } else {
+-      return std::experimental::noop_coroutine();
++      return std::noop_coroutine();
+     }
+   }
+ 
+@@ -67,8 +67,8 @@ class Barrier {
+       bool await_ready() {
+         return false;
+       }
+-      std::experimental::coroutine_handle<> await_suspend(
+-          std::experimental::coroutine_handle<> continuation) noexcept {
++      std::coroutine_handle<> await_suspend(
++          std::coroutine_handle<> continuation) noexcept {
+         barrier_.setContinuation(continuation);
+         return barrier_.arrive();
+       }
+@@ -82,14 +82,14 @@ class Barrier {
+   }
+ 
+   void setContinuation(
+-      std::experimental::coroutine_handle<> continuation) noexcept {
++      std::coroutine_handle<> continuation) noexcept {
+     assert(!continuation_);
+     continuation_ = continuation;
+   }
+ 
+  private:
+   std::atomic<std::size_t> count_;
+-  std::experimental::coroutine_handle<> continuation_;
++  std::coroutine_handle<> continuation_;
+ };
+ 
+ } // namespace detail
+diff --git a/folly/experimental/coro/detail/BarrierTask.h b/folly/experimental/coro/detail/BarrierTask.h
+index ed31201d2..6304b50c8 100644
+--- a/folly/experimental/coro/detail/BarrierTask.h
++++ b/folly/experimental/coro/detail/BarrierTask.h
+@@ -20,7 +20,7 @@
+ #include <folly/experimental/coro/detail/Malloc.h>
+ 
+ #include <cassert>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <utility>
+ 
+ namespace folly {
+@@ -34,8 +34,8 @@ class BarrierTask {
+       bool await_ready() noexcept {
+         return false;
+       }
+-      std::experimental::coroutine_handle<> await_suspend(
+-          std::experimental::coroutine_handle<promise_type> h) noexcept {
++      std::coroutine_handle<> await_suspend(
++          std::coroutine_handle<promise_type> h) noexcept {
+         auto& promise = h.promise();
+         assert(promise.barrier_ != nullptr);
+         return promise.barrier_->arrive();
+@@ -54,11 +54,11 @@ class BarrierTask {
+ 
+     BarrierTask get_return_object() noexcept {
+       return BarrierTask{
+-          std::experimental::coroutine_handle<promise_type>::from_promise(
++          std::coroutine_handle<promise_type>::from_promise(
+               *this)};
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() noexcept {
++    std::suspend_always initial_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -82,7 +82,7 @@ class BarrierTask {
+   };
+ 
+  private:
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+   explicit BarrierTask(handle_t coro) noexcept : coro_(coro) {}
+ 
+@@ -119,8 +119,8 @@ class BarrierTask {
+       bool await_ready() noexcept {
+         return false;
+       }
+-      std::experimental::coroutine_handle<> await_suspend(
+-          std::experimental::coroutine_handle<> continuation) noexcept {
++      std::coroutine_handle<> await_suspend(
++          std::coroutine_handle<> continuation) noexcept {
+         coro_.promise().setBarrier(barrier_);
+         barrier_->setContinuation(continuation);
+         return coro_;
+@@ -146,11 +146,11 @@ class DetachedBarrierTask {
+    public:
+     DetachedBarrierTask get_return_object() noexcept {
+       return DetachedBarrierTask{
+-          std::experimental::coroutine_handle<promise_type>::from_promise(
++          std::coroutine_handle<promise_type>::from_promise(
+               *this)};
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() noexcept {
++    std::suspend_always initial_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -160,7 +160,7 @@ class DetachedBarrierTask {
+           return false;
+         }
+         auto await_suspend(
+-            std::experimental::coroutine_handle<promise_type> h) noexcept {
++            std::coroutine_handle<promise_type> h) noexcept {
+           assert(h.promise().barrier_ != nullptr);
+           auto continuation = h.promise().barrier_->arrive();
+           h.destroy();
+@@ -186,7 +186,7 @@ class DetachedBarrierTask {
+   };
+ 
+  private:
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+   explicit DetachedBarrierTask(handle_t coro) : coro_(coro) {}
+ 
+diff --git a/folly/experimental/coro/detail/InlineTask.h b/folly/experimental/coro/detail/InlineTask.h
+index dfa254d7d..856b73ba6 100644
+--- a/folly/experimental/coro/detail/InlineTask.h
++++ b/folly/experimental/coro/detail/InlineTask.h
+@@ -21,7 +21,7 @@
+ #include <folly/experimental/coro/detail/Malloc.h>
+ 
+ #include <cassert>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <utility>
+ 
+ namespace folly {
+@@ -50,8 +50,8 @@ class InlineTaskPromiseBase {
+     }
+ 
+     template <typename Promise>
+-    std::experimental::coroutine_handle<> await_suspend(
+-        std::experimental::coroutine_handle<Promise> h) noexcept {
++    std::coroutine_handle<> await_suspend(
++        std::coroutine_handle<Promise> h) noexcept {
+       InlineTaskPromiseBase& promise = h.promise();
+       return promise.continuation_;
+     }
+@@ -76,7 +76,7 @@ class InlineTaskPromiseBase {
+     ::folly_coro_async_free(ptr, size);
+   }
+ 
+-  std::experimental::suspend_always initial_suspend() noexcept {
++  std::suspend_always initial_suspend() noexcept {
+     return {};
+   }
+ 
+@@ -85,13 +85,13 @@ class InlineTaskPromiseBase {
+   }
+ 
+   void set_continuation(
+-      std::experimental::coroutine_handle<> continuation) noexcept {
++      std::coroutine_handle<> continuation) noexcept {
+     assert(!continuation_);
+     continuation_ = continuation;
+   }
+ 
+  private:
+-  std::experimental::coroutine_handle<> continuation_;
++  std::coroutine_handle<> continuation_;
+ };
+ 
+ template <typename T>
+@@ -173,7 +173,7 @@ class InlineTask {
+   using promise_type = detail::InlineTaskPromise<T>;
+ 
+  private:
+-  using handle_t = std::experimental::coroutine_handle<promise_type>;
++  using handle_t = std::coroutine_handle<promise_type>;
+ 
+  public:
+   InlineTask(InlineTask&& other) noexcept
+@@ -198,7 +198,7 @@ class InlineTask {
+     }
+ 
+     handle_t await_suspend(
+-        std::experimental::coroutine_handle<> awaitingCoroutine) noexcept {
++        std::coroutine_handle<> awaitingCoroutine) noexcept {
+       assert(coro_ && !coro_.done());
+       coro_.promise().set_continuation(awaitingCoroutine);
+       return coro_;
+@@ -230,12 +230,12 @@ class InlineTask {
+ template <typename T>
+ inline InlineTask<T> InlineTaskPromise<T>::get_return_object() noexcept {
+   return InlineTask<T>{
+-      std::experimental::coroutine_handle<InlineTaskPromise<T>>::from_promise(
++      std::coroutine_handle<InlineTaskPromise<T>>::from_promise(
+           *this)};
+ }
+ 
+ inline InlineTask<void> InlineTaskPromise<void>::get_return_object() noexcept {
+-  return InlineTask<void>{std::experimental::coroutine_handle<
++  return InlineTask<void>{std::coroutine_handle<
+       InlineTaskPromise<void>>::from_promise(*this)};
+ }
+ 
+@@ -258,11 +258,11 @@ struct InlineTaskDetached {
+       return {};
+     }
+ 
+-    std::experimental::suspend_never initial_suspend() noexcept {
++    std::suspend_never initial_suspend() noexcept {
+       return {};
+     }
+ 
+-    std::experimental::suspend_never final_suspend() noexcept {
++    std::suspend_never final_suspend() noexcept {
+       return {};
+     }
+ 
+diff --git a/folly/experimental/coro/test/BlockingWaitTest.cpp b/folly/experimental/coro/test/BlockingWaitTest.cpp
+index 0d4362b05..57450ab23 100644
+--- a/folly/experimental/coro/test/BlockingWaitTest.cpp
++++ b/folly/experimental/coro/test/BlockingWaitTest.cpp
+@@ -105,7 +105,7 @@ struct TrickyAwaitable {
+       return false;
+     }
+ 
+-    bool await_suspend(std::experimental::coroutine_handle<>) {
++    bool await_suspend(std::coroutine_handle<>) {
+       value_ = std::make_unique<int>(42);
+       return false;
+     }
+@@ -155,7 +155,7 @@ class SimplePromise {
+     }
+ 
+     template <typename Promise>
+-    auto await_suspend(std::experimental::coroutine_handle<Promise> h) {
++    auto await_suspend(std::coroutine_handle<Promise> h) {
+       return awaiter_.await_suspend(h);
+     }
+ 
+diff --git a/folly/experimental/coro/test/CoroBenchmarkAllocator.cpp b/folly/experimental/coro/test/CoroBenchmarkAllocator.cpp
+index e1656f621..aa61c2c93 100644
+--- a/folly/experimental/coro/test/CoroBenchmarkAllocator.cpp
++++ b/folly/experimental/coro/test/CoroBenchmarkAllocator.cpp
+@@ -17,7 +17,7 @@
+ #include <folly/Benchmark.h>
+ 
+ #if FOLLY_HAS_COROUTINES
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <future>
+ 
+ class Wait {
+@@ -28,11 +28,11 @@ class Wait {
+       return Wait(promise_.get_future());
+     }
+ 
+-    std::experimental::suspend_never initial_suspend() noexcept {
++    std::suspend_never initial_suspend() noexcept {
+       return {};
+     }
+ 
+-    std::experimental::suspend_never final_suspend() noexcept {
++    std::suspend_never final_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -81,16 +81,16 @@ class InlineTask {
+     return false;
+   }
+ 
+-  std::experimental::coroutine_handle<> await_suspend(
+-      std::experimental::coroutine_handle<> awaiter) {
++  std::coroutine_handle<> await_suspend(
++      std::coroutine_handle<> awaiter) {
+     promise_->valuePtr_ = &value_;
+     promise_->awaiter_ = std::move(awaiter);
+-    return std::experimental::coroutine_handle<promise_type>::from_promise(
++    return std::coroutine_handle<promise_type>::from_promise(
+         *promise_);
+   }
+ 
+   T await_resume() {
+-    std::experimental::coroutine_handle<promise_type>::from_promise(
++    std::coroutine_handle<promise_type>::from_promise(
+         *std::exchange(promise_, nullptr))
+         .destroy();
+     T value = std::move(value_);
+@@ -112,7 +112,7 @@ class InlineTask {
+       std::terminate();
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() {
++    std::suspend_always initial_suspend() {
+       return {};
+     }
+ 
+@@ -123,7 +123,7 @@ class InlineTask {
+       }
+ 
+       auto await_suspend(
+-          std::experimental::coroutine_handle<promise_type> h) noexcept {
++          std::coroutine_handle<promise_type> h) noexcept {
+         return h.promise().awaiter_;
+       }
+ 
+@@ -138,7 +138,7 @@ class InlineTask {
+     friend class InlineTask;
+ 
+     T* valuePtr_;
+-    std::experimental::coroutine_handle<> awaiter_;
++    std::coroutine_handle<> awaiter_;
+   };
+ 
+  private:
+@@ -191,16 +191,16 @@ class InlineTaskAllocator {
+     return false;
+   }
+ 
+-  std::experimental::coroutine_handle<> await_suspend(
+-      std::experimental::coroutine_handle<> awaiter) {
++  std::coroutine_handle<> await_suspend(
++      std::coroutine_handle<> awaiter) {
+     promise_->valuePtr_ = &value_;
+     promise_->awaiter_ = std::move(awaiter);
+-    return std::experimental::coroutine_handle<promise_type>::from_promise(
++    return std::coroutine_handle<promise_type>::from_promise(
+         *promise_);
+   }
+ 
+   T await_resume() {
+-    std::experimental::coroutine_handle<promise_type>::from_promise(
++    std::coroutine_handle<promise_type>::from_promise(
+         *std::exchange(promise_, nullptr))
+         .destroy();
+     T value = std::move(value_);
+@@ -237,7 +237,7 @@ class InlineTaskAllocator {
+       std::terminate();
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() noexcept {
++    std::suspend_always initial_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -248,7 +248,7 @@ class InlineTaskAllocator {
+       }
+ 
+       auto await_suspend(
+-          std::experimental::coroutine_handle<promise_type> h) noexcept {
++          std::coroutine_handle<promise_type> h) noexcept {
+         return h.promise().awaiter_;
+       }
+ 
+@@ -263,7 +263,7 @@ class InlineTaskAllocator {
+     friend class InlineTaskAllocator;
+ 
+     T* valuePtr_;
+-    std::experimental::coroutine_handle<> awaiter_;
++    std::coroutine_handle<> awaiter_;
+   };
+ 
+  private:
+diff --git a/folly/experimental/coro/test/CoroBenchmarkNRVO.cpp b/folly/experimental/coro/test/CoroBenchmarkNRVO.cpp
+index f96d364ec..67768312d 100644
+--- a/folly/experimental/coro/test/CoroBenchmarkNRVO.cpp
++++ b/folly/experimental/coro/test/CoroBenchmarkNRVO.cpp
+@@ -26,7 +26,7 @@ struct ExpensiveCopy {
+ };
+ 
+ #if FOLLY_HAS_COROUTINES
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <future>
+ 
+ class Wait {
+@@ -37,11 +37,11 @@ class Wait {
+       return Wait(promise_.get_future());
+     }
+ 
+-    std::experimental::suspend_never initial_suspend() noexcept {
++    std::suspend_never initial_suspend() noexcept {
+       return {};
+     }
+ 
+-    std::experimental::suspend_never final_suspend() noexcept {
++    std::suspend_never final_suspend() noexcept {
+       return {};
+     }
+ 
+@@ -90,16 +90,16 @@ class InlineTask {
+     return false;
+   }
+ 
+-  std::experimental::coroutine_handle<> await_suspend(
+-      std::experimental::coroutine_handle<> awaiter) {
++  std::coroutine_handle<> await_suspend(
++      std::coroutine_handle<> awaiter) {
+     promise_->valuePtr_ = &value_;
+     promise_->awaiter_ = std::move(awaiter);
+-    return std::experimental::coroutine_handle<promise_type>::from_promise(
++    return std::coroutine_handle<promise_type>::from_promise(
+         *promise_);
+   }
+ 
+   T await_resume() {
+-    std::experimental::coroutine_handle<promise_type>::from_promise(
++    std::coroutine_handle<promise_type>::from_promise(
+         *std::exchange(promise_, nullptr))
+         .destroy();
+     T value = std::move(value_);
+@@ -121,28 +121,28 @@ class InlineTask {
+       std::terminate();
+     }
+ 
+-    std::experimental::suspend_always initial_suspend() {
++    std::suspend_always initial_suspend() {
+       return {};
+     }
+ 
+     class FinalSuspender {
+      public:
+       explicit FinalSuspender(
+-          std::experimental::coroutine_handle<> awaiter) noexcept
++          std::coroutine_handle<> awaiter) noexcept
+           : awaiter_(std::move(awaiter)) {}
+ 
+       bool await_ready() noexcept {
+         return false;
+       }
+ 
+-      auto await_suspend(std::experimental::coroutine_handle<>) noexcept {
++      auto await_suspend(std::coroutine_handle<>) noexcept {
+         return awaiter_;
+       }
+ 
+       void await_resume() noexcept {}
+ 
+      private:
+-      std::experimental::coroutine_handle<> awaiter_;
++      std::coroutine_handle<> awaiter_;
+     };
+ 
+     FinalSuspender final_suspend() noexcept {
+@@ -153,7 +153,7 @@ class InlineTask {
+     friend class InlineTask;
+ 
+     T* valuePtr_;
+-    std::experimental::coroutine_handle<> awaiter_;
++    std::coroutine_handle<> awaiter_;
+   };
+ 
+  private:
+diff --git a/folly/experimental/coro/test/CoroTest.cpp b/folly/experimental/coro/test/CoroTest.cpp
+index 0b89c2550..775a1897c 100644
+--- a/folly/experimental/coro/test/CoroTest.cpp
++++ b/folly/experimental/coro/test/CoroTest.cpp
+@@ -363,7 +363,7 @@ struct AwaitableInt {
+     return true;
+   }
+ 
+-  bool await_suspend(std::experimental::coroutine_handle<>) {
++  bool await_suspend(std::coroutine_handle<>) {
+     LOG(FATAL) << "Should never be called.";
+   }
+ 
+diff --git a/folly/experimental/coro/test/InlineTaskTest.cpp b/folly/experimental/coro/test/InlineTaskTest.cpp
+index 0968773f9..1f2d08a52 100644
+--- a/folly/experimental/coro/test/InlineTaskTest.cpp
++++ b/folly/experimental/coro/test/InlineTaskTest.cpp
+@@ -198,7 +198,7 @@ struct MyException : std::exception {};
+ 
+ TEST_F(InlineTaskTest, ExceptionsPropagateFromVoidTask) {
+   auto f = []() -> InlineTask<void> {
+-    co_await std::experimental::suspend_never{};
++    co_await std::suspend_never{};
+     throw MyException{};
+   };
+   EXPECT_THROW(folly::coro::blockingWait(f()), MyException);
+@@ -206,7 +206,7 @@ TEST_F(InlineTaskTest, ExceptionsPropagateFromVoidTask) {
+ 
+ TEST_F(InlineTaskTest, ExceptionsPropagateFromValueTask) {
+   auto f = []() -> InlineTask<int> {
+-    co_await std::experimental::suspend_never{};
++    co_await std::suspend_never{};
+     throw MyException{};
+   };
+   EXPECT_THROW(folly::coro::blockingWait(f()), MyException);
+@@ -214,7 +214,7 @@ TEST_F(InlineTaskTest, ExceptionsPropagateFromValueTask) {
+ 
+ TEST_F(InlineTaskTest, ExceptionsPropagateFromRefTask) {
+   auto f = []() -> InlineTask<int&> {
+-    co_await std::experimental::suspend_never{};
++    co_await std::suspend_never{};
+     throw MyException{};
+   };
+   EXPECT_THROW(folly::coro::blockingWait(f()), MyException);
+diff --git a/folly/experimental/coro/test/TraitsTest.cpp b/folly/experimental/coro/test/TraitsTest.cpp
+index d66dea56d..2eddcee5e 100644
+--- a/folly/experimental/coro/test/TraitsTest.cpp
++++ b/folly/experimental/coro/test/TraitsTest.cpp
+@@ -19,7 +19,7 @@
+ #if FOLLY_HAS_COROUTINES
+ 
+ #include <folly/experimental/coro/Traits.h>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #include <type_traits>
+ 
+ using namespace folly::coro;
+@@ -27,33 +27,33 @@ using namespace folly::coro;
+ template <typename T>
+ struct SomeAwaiter1 {
+   bool await_ready();
+-  void await_suspend(std::experimental::coroutine_handle<>);
++  void await_suspend(std::coroutine_handle<>);
+   T await_resume();
+ };
+ 
+ template <typename T>
+ struct SomeAwaiter2 {
+   bool await_ready();
+-  bool await_suspend(std::experimental::coroutine_handle<>);
++  bool await_suspend(std::coroutine_handle<>);
+   T await_resume();
+ };
+ 
+ template <typename T>
+ struct SomeAwaiter3 {
+   bool await_ready();
+-  std::experimental::coroutine_handle<> await_suspend(
+-      std::experimental::coroutine_handle<>);
++  std::coroutine_handle<> await_suspend(
++      std::coroutine_handle<>);
+   T await_resume();
+ };
+ 
+ struct MissingAwaitReady {
+-  void await_suspend(std::experimental::coroutine_handle<>);
++  void await_suspend(std::coroutine_handle<>);
+   int await_resume();
+ };
+ 
+ struct WrongAwaitReadyReturnType {
+   void* await_ready();
+-  void await_suspend(std::experimental::coroutine_handle<>);
++  void await_suspend(std::coroutine_handle<>);
+   int await_resume();
+ };
+ 
+@@ -70,7 +70,7 @@ struct WrongAwaitSuspendArgType {
+ 
+ struct MissingAwaitResume {
+   bool await_ready();
+-  void await_suspend(std::experimental::coroutine_handle<void>);
++  void await_suspend(std::coroutine_handle<void>);
+ };
+ 
+ struct MemberOperatorCoAwait {
+diff --git a/folly/fibers/Baton.h b/folly/fibers/Baton.h
+index f089d26b8..bda3db4cc 100644
+--- a/folly/fibers/Baton.h
++++ b/folly/fibers/Baton.h
+@@ -23,7 +23,7 @@
+ #include <folly/io/async/HHWheelTimer.h>
+ 
+ #if FOLLY_HAS_COROUTINES
+-#include <experimental/coroutine>
++#include <coroutine>
+ #endif
+ 
+ namespace folly {
+@@ -281,14 +281,14 @@ class BatonAwaitableWaiter : public Baton::Waiter {
+ 
+   void await_resume() {}
+ 
+-  void await_suspend(std::experimental::coroutine_handle<> h) {
++  void await_suspend(std::coroutine_handle<> h) {
+     assert(!h_);
+     h_ = std::move(h);
+     baton_.setWaiter(*this);
+   }
+ 
+  private:
+-  std::experimental::coroutine_handle<> h_;
++  std::coroutine_handle<> h_;
+   Baton& baton_;
+ };
+ } // namespace detail
+diff --git a/folly/futures/Future.h b/folly/futures/Future.h
+index 022816428..fd5e9213c 100644
+--- a/folly/futures/Future.h
++++ b/folly/futures/Future.h
+@@ -40,7 +40,7 @@
+ 
+ #if FOLLY_HAS_COROUTINES
+ #include <folly/experimental/coro/Traits.h>
+-#include <experimental/coroutine>
++#include <coroutine>
+ #endif
+ 
+ // boring predeclarations and details
+@@ -2622,7 +2622,7 @@ class FutureAwaitable {
+   }
+ 
+   FOLLY_CORO_AWAIT_SUSPEND_NONTRIVIAL_ATTRIBUTES void await_suspend(
+-      std::experimental::coroutine_handle<> h) {
++      std::coroutine_handle<> h) {
+     // FutureAwaitable may get destroyed as soon as the callback is executed.
+     // Make sure the future object doesn't get destroyed until setCallback_
+     // returns.
+diff --git a/folly/lang/PropagateConst.h b/folly/lang/PropagateConst.h
+index a284df9ad..c28d3c7cb 100644
+--- a/folly/lang/PropagateConst.h
++++ b/folly/lang/PropagateConst.h
+@@ -54,7 +54,7 @@ auto adl_swap(T& a, T& b) noexcept(noexcept(swap(a, b)))
+ } // namespace propagate_const_adl
+ } // namespace detail
+ 
+-//  mimic: std::experimental::propagate_const, C++ Library Fundamentals TS v2
++//  mimic: std::propagate_const, C++ Library Fundamentals TS v2
+ template <typename Pointer>
+ class propagate_const {
+  public:
+diff --git a/folly/memory/MemoryResource.h b/folly/memory/MemoryResource.h
+index 30abd66c6..ab2b1e107 100644
+--- a/folly/memory/MemoryResource.h
++++ b/folly/memory/MemoryResource.h
+@@ -36,7 +36,7 @@ namespace std_pmr = ::std::pmr;
+ #include <experimental/memory_resource> // @manual
+ namespace folly {
+ namespace detail {
+-namespace std_pmr = ::std::experimental::pmr;
++namespace std_pmr = ::std::pmr;
+ } // namespace detail
+ } // namespace folly
+ 
+diff --git a/folly/test/function_benchmark/benchmark_impl.cpp b/folly/test/function_benchmark/benchmark_impl.cpp
+deleted file mode 100644
+index e3d65f9fc..000000000
+--- a/folly/test/function_benchmark/benchmark_impl.cpp
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/*
+- * Copyright (c) Facebook, Inc. and its affiliates.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#include <folly/test/function_benchmark/benchmark_impl.h>
+-
+-#include <folly/test/function_benchmark/test_functions.h>
+-
+-/*
+- * These functions are defined in a separate file so that gcc won't be able to
+- * inline them and optimize away the indirect calls.
+- */
+-
+-void BM_fn_ptr_invoke_impl(int iters, void (*fn)()) {
+-  for (int n = 0; n < iters; ++n) {
+-    fn();
+-  }
+-}
+-
+-void BM_std_function_invoke_impl(int iters, const std::function<void()>& fn) {
+-  for (int n = 0; n < iters; ++n) {
+-    fn();
+-  }
+-}
+-
+-void BM_Function_invoke_impl(
+-    int iters,
+-    const folly::Function<void() const>& fn) {
+-  for (int n = 0; n < iters; ++n) {
+-    fn();
+-  }
+-}
+-
+-void BM_mem_fn_invoke_impl(
+-    int iters,
+-    TestClass* tc,
+-    void (TestClass::*memfn)()) {
+-  for (int n = 0; n < iters; ++n) {
+-    (tc->*memfn)();
+-  }
+-}
+-
+-void BM_virtual_fn_invoke_impl(int iters, VirtualClass* vc) {
+-  for (int n = 0; n < iters; ++n) {
+-    vc->doNothing();
+-  }
+-}
+diff --git a/folly/test/function_benchmark/benchmark_impl.h b/folly/test/function_benchmark/benchmark_impl.h
+deleted file mode 100644
+index 9200eb67f..000000000
+--- a/folly/test/function_benchmark/benchmark_impl.h
++++ /dev/null
+@@ -1,53 +0,0 @@
+-/*
+- * Copyright (c) Facebook, Inc. and its affiliates.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#pragma once
+-
+-#include <functional>
+-
+-#include <folly/Function.h>
+-
+-class TestClass;
+-class VirtualClass;
+-
+-void BM_fn_ptr_invoke_impl(int iters, void (*fn)());
+-void BM_std_function_invoke_impl(int iters, const std::function<void()>& fn);
+-void BM_Function_invoke_impl(
+-    int iters,
+-    const folly::Function<void() const>& fn);
+-void BM_mem_fn_invoke_impl(
+-    int iters,
+-    TestClass* tc,
+-    void (TestClass::*memfn)());
+-void BM_virtual_fn_invoke_impl(int iters, VirtualClass* vc);
+-
+-// Inlined version of BM_fn_ptr_invoke_impl().
+-// The compiler could potentially even optimize the call to the function
+-// pointer if it is a constexpr.
+-inline void BM_fn_ptr_invoke_inlined_impl(int iters, void (*fn)()) {
+-  for (int n = 0; n < iters; ++n) {
+-    fn();
+-  }
+-}
+-
+-// Invoke a function object as a template parameter.
+-// This can be used to directly invoke lambda functions
+-template <typename T>
+-void BM_invoke_fn_template_impl(int iters, const T& fn) {
+-  for (int n = 0; n < iters; ++n) {
+-    fn();
+-  }
+-}
+diff --git a/folly/test/function_benchmark/main.cpp b/folly/test/function_benchmark/main.cpp
+deleted file mode 100644
+index a67bddd85..000000000
+--- a/folly/test/function_benchmark/main.cpp
++++ /dev/null
+@@ -1,470 +0,0 @@
+-/*
+- * Copyright (c) Facebook, Inc. and its affiliates.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#include <folly/test/function_benchmark/benchmark_impl.h>
+-#include <folly/test/function_benchmark/test_functions.h>
+-
+-#include <glog/logging.h>
+-
+-#include <folly/Benchmark.h>
+-#include <folly/ScopeGuard.h>
+-#include <folly/portability/GFlags.h>
+-
+-using folly::makeGuard;
+-
+-// Declare the bm_max_iters flag from folly/Benchmark.cpp
+-DECLARE_int32(bm_max_iters);
+-
+-// Directly invoking a function
+-BENCHMARK(fn_invoke, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    doNothing();
+-  }
+-}
+-
+-// Invoking a function through a function pointer
+-BENCHMARK(fn_ptr_invoke, iters) {
+-  BM_fn_ptr_invoke_impl(iters, doNothing);
+-}
+-
+-// Invoking a function through a std::function object
+-BENCHMARK(std_function_invoke, iters) {
+-  BM_std_function_invoke_impl(iters, doNothing);
+-}
+-
+-// Invoking a function through a folly::Function object
+-BENCHMARK(Function_invoke, iters) {
+-  BM_Function_invoke_impl(iters, doNothing);
+-}
+-
+-// Invoking a member function through a member function pointer
+-BENCHMARK(mem_fn_invoke, iters) {
+-  TestClass tc;
+-  BM_mem_fn_invoke_impl(iters, &tc, &TestClass::doNothing);
+-}
+-
+-// Invoke a function pointer through an inlined wrapper function
+-BENCHMARK(fn_ptr_invoke_through_inline, iters) {
+-  BM_fn_ptr_invoke_inlined_impl(iters, doNothing);
+-}
+-
+-// Invoke a lambda that calls doNothing() through an inlined wrapper function
+-BENCHMARK(lambda_invoke_fn, iters) {
+-  BM_invoke_fn_template_impl(iters, [] { doNothing(); });
+-}
+-
+-// Invoke a lambda that does nothing
+-BENCHMARK(lambda_noop, iters) {
+-  BM_invoke_fn_template_impl(iters, [] {});
+-}
+-
+-// Invoke a lambda that modifies a local variable
+-BENCHMARK(lambda_local_var, iters) {
+-  uint32_t count1 = 0;
+-  uint32_t count2 = 0;
+-  BM_invoke_fn_template_impl(iters, [&] {
+-    // Do something slightly more complicated than just incrementing a
+-    // variable.  Otherwise gcc is smart enough to optimize the loop away.
+-    if (count1 & 0x1) {
+-      ++count2;
+-    }
+-    ++count1;
+-  });
+-
+-  // Use the values we computed, so gcc won't optimize the loop away
+-  CHECK_EQ(iters, count1);
+-  CHECK_EQ(iters / 2, count2);
+-}
+-
+-// Invoke a function pointer through the same wrapper used for lambdas
+-BENCHMARK(fn_ptr_invoke_through_template, iters) {
+-  BM_invoke_fn_template_impl(iters, doNothing);
+-}
+-
+-// Invoking a virtual method
+-BENCHMARK(virtual_fn_invoke, iters) {
+-  VirtualClass vc;
+-  BM_virtual_fn_invoke_impl(iters, &vc);
+-}
+-
+-// Creating a function pointer and invoking it
+-BENCHMARK(fn_ptr_create_invoke, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    void (*fn)() = doNothing;
+-    fn();
+-  }
+-}
+-
+-// Creating a std::function object from a function pointer, and invoking it
+-BENCHMARK(std_function_create_invoke, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    std::function<void()> fn = doNothing;
+-    fn();
+-  }
+-}
+-
+-// Creating a folly::Function object from a function pointer, and
+-// invoking it
+-BENCHMARK(Function_create_invoke, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    folly::Function<void()> fn = doNothing;
+-    fn();
+-  }
+-}
+-
+-// Creating a pointer-to-member and invoking it
+-BENCHMARK(mem_fn_create_invoke, iters) {
+-  TestClass tc;
+-  for (size_t n = 0; n < iters; ++n) {
+-    void (TestClass::*memfn)() = &TestClass::doNothing;
+-    (tc.*memfn)();
+-  }
+-}
+-
+-// Using std::bind to create a std::function from a member function,
+-// and invoking it
+-BENCHMARK(std_bind_create_invoke, iters) {
+-  TestClass tc;
+-  for (size_t n = 0; n < iters; ++n) {
+-    std::function<void()> fn = std::bind(&TestClass::doNothing, &tc);
+-    fn();
+-  }
+-}
+-
+-// Using std::bind directly to invoke a member function
+-BENCHMARK(std_bind_direct_invoke, iters) {
+-  TestClass tc;
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto fn = std::bind(&TestClass::doNothing, &tc);
+-    fn();
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a std::function
+-BENCHMARK(scope_guard_std_function, iters) {
+-  std::function<void()> fn(doNothing);
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard(fn);
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a std::function,
+-// but create the ScopeGuard with an rvalue to a std::function
+-BENCHMARK(scope_guard_std_function_rvalue, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard(std::function<void()>(doNothing));
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a folly::Function,
+-// but create the ScopeGuard with an rvalue to a folly::Function
+-BENCHMARK(scope_guard_Function_rvalue, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard(folly::Function<void()>(doNothing));
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a function pointer
+-BENCHMARK(scope_guard_fn_ptr, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard(doNothing);
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a lambda that does nothing
+-BENCHMARK(scope_guard_lambda_noop, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard([] {});
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a lambda that invokes a function
+-BENCHMARK(scope_guard_lambda_function, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard([] { doNothing(); });
+-    (void)g;
+-  }
+-}
+-
+-// Using ScopeGuard to invoke a lambda that modifies a local variable
+-BENCHMARK(scope_guard_lambda_local_var, iters) {
+-  uint32_t count = 0;
+-  for (size_t n = 0; n < iters; ++n) {
+-    auto g = makeGuard([&] {
+-      // Increment count if n is odd.  Without this conditional check
+-      // (i.e., if we just increment count each time through the loop),
+-      // gcc is smart enough to optimize the entire loop away, and just set
+-      // count = iters.
+-      if (n & 0x1) {
+-        ++count;
+-      }
+-    });
+-    (void)g;
+-  }
+-
+-  // Check that the value of count is what we expect.
+-  // This check is necessary: if we don't use count, gcc detects that count is
+-  // unused and optimizes the entire loop away.
+-  CHECK_EQ(iters / 2, count);
+-}
+-
+-BENCHMARK_DRAW_LINE();
+-
+-BENCHMARK(throw_exception, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    try {
+-      folly::throw_exception<Exception>("this is a test");
+-    } catch (const std::exception&) {
+-    }
+-  }
+-}
+-
+-BENCHMARK(catch_no_exception, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    try {
+-      doNothing();
+-    } catch (const std::exception&) {
+-    }
+-  }
+-}
+-
+-BENCHMARK(return_exc_ptr, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    returnExceptionPtr();
+-  }
+-}
+-
+-BENCHMARK(exc_ptr_param_return, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    std::exception_ptr ex;
+-    exceptionPtrReturnParam(&ex);
+-  }
+-}
+-
+-BENCHMARK(exc_ptr_param_return_null, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    exceptionPtrReturnParam(nullptr);
+-  }
+-}
+-
+-BENCHMARK(return_string, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    returnString();
+-  }
+-}
+-
+-BENCHMARK(return_string_noexcept, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    returnStringNoExcept();
+-  }
+-}
+-
+-BENCHMARK(return_code, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    returnCode(false);
+-  }
+-}
+-
+-BENCHMARK(return_code_noexcept, iters) {
+-  for (size_t n = 0; n < iters; ++n) {
+-    returnCodeNoExcept(false);
+-  }
+-}
+-
+-BENCHMARK_DRAW_LINE();
+-
+-BENCHMARK(std_function_create_move_invoke, iters) {
+-  LargeClass a;
+-  for (size_t i = 0; i < iters; ++i) {
+-    std::function<void()> f(a);
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK(Function_create_move_invoke, iters) {
+-  LargeClass a;
+-  for (size_t i = 0; i < iters; ++i) {
+-    folly::Function<void()> f(a);
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK(std_function_create_move_invoke_small, iters) {
+-  for (size_t i = 0; i < iters; ++i) {
+-    std::function<void()> f(doNothing);
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK(Function_create_move_invoke_small, iters) {
+-  for (size_t i = 0; i < iters; ++i) {
+-    folly::Function<void()> f(doNothing);
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK(std_function_create_move_invoke_ref, iters) {
+-  LargeClass a;
+-  for (size_t i = 0; i < iters; ++i) {
+-    std::function<void()> f(std::ref(a));
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK(Function_create_move_invoke_ref, iters) {
+-  LargeClass a;
+-  for (size_t i = 0; i < iters; ++i) {
+-    folly::Function<void()> f(std::ref(a));
+-    invoke(std::move(f));
+-  }
+-}
+-
+-BENCHMARK_DRAW_LINE();
+-
+-BENCHMARK(function_ptr_move, iters) {
+-  auto f = &doNothing;
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(std_function_move_small, iters) {
+-  std::shared_ptr<int> a(new int);
+-  std::function<void()> f([a]() { doNothing(); });
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(Function_move_small, iters) {
+-  std::shared_ptr<int> a(new int);
+-  folly::Function<void()> f([a]() { doNothing(); });
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(std_function_move_small_trivial, iters) {
+-  std::function<void()> f(doNothing);
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(Function_move_small_trivial, iters) {
+-  folly::Function<void()> f(doNothing);
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(std_function_move_large, iters) {
+-  LargeClass a;
+-  std::function<void()> f(a);
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-BENCHMARK(Function_move_large, iters) {
+-  LargeClass a;
+-  folly::Function<void()> f(a);
+-  for (size_t i = 0; i < iters; ++i) {
+-    auto f2 = std::move(f);
+-    folly::doNotOptimizeAway(f2);
+-    f = std::move(f2);
+-  }
+-}
+-
+-// main()
+-
+-int main(int argc, char** argv) {
+-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+-  folly::runBenchmarks();
+-}
+-
+-/*
+-============================================================================
+-folly/test/function_benchmark/main.cpp          relative  time/iter  iters/s
+-============================================================================
+-fn_invoke                                                    1.22ns  822.88M
+-fn_ptr_invoke                                                1.22ns  822.99M
+-std_function_invoke                                          2.73ns  365.78M
+-Function_invoke                                              2.73ns  365.79M
+-mem_fn_invoke                                                1.37ns  731.38M
+-fn_ptr_invoke_through_inline                                 1.22ns  822.95M
+-lambda_invoke_fn                                             1.22ns  822.88M
+-lambda_noop                                                  0.00fs  Infinity
+-lambda_local_var                                           182.49ps    5.48G
+-fn_ptr_invoke_through_template                               1.22ns  822.95M
+-virtual_fn_invoke                                            1.22ns  822.98M
+-fn_ptr_create_invoke                                         1.22ns  822.94M
+-std_function_create_invoke                                   3.88ns  257.83M
+-Function_create_invoke                                       2.73ns  365.73M
+-mem_fn_create_invoke                                         1.22ns  822.98M
+-std_bind_create_invoke                                      18.91ns   52.89M
+-std_bind_direct_invoke                                       1.22ns  822.98M
+-scope_guard_std_function                                     7.24ns  138.14M
+-scope_guard_std_function_rvalue                              6.44ns  155.23M
+-scope_guard_Function_rvalue                                  5.53ns  180.87M
+-scope_guard_fn_ptr                                         928.25ps    1.08G
+-scope_guard_lambda_noop                                      0.00fs  Infinity
+-scope_guard_lambda_function                                  1.22ns  822.97M
+-scope_guard_lambda_local_var                               101.27ps    9.87G
+-----------------------------------------------------------------------------
+-throw_exception                                              1.90us  524.98K
+-catch_no_exception                                           1.22ns  822.98M
+-return_exc_ptr                                               1.39us  719.84K
+-exc_ptr_param_return                                         1.41us  711.08K
+-exc_ptr_param_return_null                                    1.82ns  548.61M
+-return_string                                                2.43ns  411.48M
+-return_string_noexcept                                       2.43ns  411.48M
+-return_code                                                  1.22ns  822.98M
+-return_code_noexcept                                       943.51ps    1.06G
+-----------------------------------------------------------------------------
+-std_function_create_move_invoke                             48.74ns   20.52M
+-Function_create_move_invoke                                 50.21ns   19.92M
+-std_function_create_move_invoke_small                        6.78ns  147.58M
+-Function_create_move_invoke_small                            7.01ns  142.67M
+-std_function_create_move_invoke_ref                          6.67ns  150.03M
+-Function_create_move_invoke_ref                              6.88ns  145.35M
+-----------------------------------------------------------------------------
+-function_ptr_move                                            1.21ns  823.05M
+-std_function_move_small                                      5.77ns  173.20M
+-Function_move_small                                          7.60ns  131.58M
+-std_function_move_small_trivial                              5.77ns  173.27M
+-Function_move_small_trivial                                  5.47ns  182.86M
+-std_function_move_large                                      5.77ns  173.22M
+-Function_move_large                                          6.38ns  156.63M
+-============================================================================
+- */
+diff --git a/folly/test/function_benchmark/test_functions.cpp b/folly/test/function_benchmark/test_functions.cpp
+deleted file mode 100644
+index 9c88fbf36..000000000
+--- a/folly/test/function_benchmark/test_functions.cpp
++++ /dev/null
+@@ -1,75 +0,0 @@
+-/*
+- * Copyright (c) Facebook, Inc. and its affiliates.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#include <folly/test/function_benchmark/test_functions.h>
+-
+-#include <folly/lang/Exception.h>
+-
+-/*
+- * These functions are defined in a separate file so that
+- * gcc won't be able to inline them.
+- */
+-
+-void doNothing() {}
+-
+-std::exception_ptr returnExceptionPtr() {
+-  Exception ex("this is a test");
+-  return std::make_exception_ptr(ex);
+-}
+-
+-void exceptionPtrReturnParam(std::exception_ptr* excReturn) {
+-  if (excReturn) {
+-    Exception ex("this is a test");
+-    *excReturn = std::make_exception_ptr(ex);
+-  }
+-}
+-
+-std::string returnString() {
+-  return "this is a test";
+-}
+-
+-std::string returnStringNoExcept() noexcept {
+-  return "this is a test";
+-}
+-
+-int returnCode(int value) {
+-  return value;
+-}
+-
+-int returnCodeNoExcept(int value) noexcept {
+-  return value;
+-}
+-
+-void TestClass::doNothing() {}
+-
+-VirtualClass::~VirtualClass() {}
+-
+-void VirtualClass::doNothing() {}
+-
+-LargeClass::LargeClass() {
+-  // Suppress unused field warning
+-  data[0] = 42;
+-}
+-
+-void LargeClass::operator()() const {}
+-
+-void invoke(std::function<void()> f) {
+-  f();
+-}
+-
+-void invoke(folly::Function<void()> f) {
+-  f();
+-}
+diff --git a/folly/test/function_benchmark/test_functions.h b/folly/test/function_benchmark/test_functions.h
+deleted file mode 100644
+index 6b2ce186e..000000000
+--- a/folly/test/function_benchmark/test_functions.h
++++ /dev/null
+@@ -1,67 +0,0 @@
+-/*
+- * Copyright (c) Facebook, Inc. and its affiliates.
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *     http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-#pragma once
+-
+-#include <exception>
+-#include <functional>
+-#include <string>
+-
+-#include <folly/Function.h>
+-
+-class Exception : public std::exception {
+- public:
+-  explicit Exception(const std::string& value) : value_(value) {}
+-  ~Exception() noexcept override {}
+-
+-  const char* what() const noexcept override {
+-    return value_.c_str();
+-  }
+-
+- private:
+-  std::string value_;
+-};
+-
+-void doNothing();
+-
+-std::exception_ptr returnExceptionPtr();
+-void exceptionPtrReturnParam(std::exception_ptr* excReturn);
+-std::string returnString();
+-std::string returnStringNoExcept() noexcept;
+-int returnCode(int value);
+-int returnCodeNoExcept(int value) noexcept;
+-void invoke(std::function<void()>);
+-void invoke(folly::Function<void()>);
+-
+-class TestClass {
+- public:
+-  void doNothing();
+-};
+-
+-class VirtualClass {
+- public:
+-  virtual ~VirtualClass();
+-  virtual void doNothing();
+-};
+-
+-class LargeClass {
+- public:
+-  LargeClass();
+-  void operator()() const; // do nothing
+- private:
+-  // Avoid small object optimization.
+-  char data[1024];
+-};
+-- 
+2.25.1
+

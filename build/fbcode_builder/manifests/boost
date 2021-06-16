@@ -52,6 +52,7 @@ boost-program-options
 builder = boost
 
 [b2.args]
+link=shared
 --with-atomic
 --with-chrono
 --with-container

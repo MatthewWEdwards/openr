@@ -1,0 +1,25 @@
+From 57857d10d5018765a46b8190e172ecc8272321bf Mon Sep 17 00:00:00 2001
+From: Matthew Edwards <matthewedwards@fb.com>
+Date: Tue, 29 Jun 2021 18:46:51 +0000
+Subject: [PATCH] fbthrift TG
+
+---
+ thrift/lib/cpp2/async/ClientBufferedStream.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/thrift/lib/cpp2/async/ClientBufferedStream.h b/thrift/lib/cpp2/async/ClientBufferedStream.h
+index 5233f8de3..e1b5081a3 100644
+--- a/thrift/lib/cpp2/async/ClientBufferedStream.h
++++ b/thrift/lib/cpp2/async/ClientBufferedStream.h
+@@ -158,7 +158,7 @@ class ClientBufferedStream {
+     };
+ 
+     while (true) {
+-      if ((co_await folly::coro::co_current_cancellation_token)
++      if (((folly::CancellationToken) co_await folly::coro::co_current_cancellation_token)
+               .isCancellationRequested()) {
+         throw folly::OperationCancelled();
+       }
+-- 
+2.25.1
+

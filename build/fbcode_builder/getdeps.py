@@ -7,6 +7,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -114,6 +115,10 @@ class ProjectCmdBase(SubCmd):
             elif len(parts) == 1:
                 project = args.project
                 path = parts[0]
+            # On Windows path contains colon, e.g. C:\open
+            elif os.name == "nt" and len(parts) == 3:
+                project = parts[0]
+                path = parts[1] + ":" + parts[2]
             else:
                 raise UsageError(
                     "invalid %s argument; too many ':' characters: %s" % (arg_type, arg)
@@ -207,8 +212,8 @@ class ProjectCmdBase(SubCmd):
 
 
 class CachedProject(object):
-    """ A helper that allows calling the cache logic for a project
-    from both the build and the fetch code """
+    """A helper that allows calling the cache logic for a project
+    from both the build and the fetch code"""
 
     def __init__(self, cache, loader, m):
         self.m = m
@@ -230,7 +235,7 @@ class CachedProject(object):
         )
 
     def is_cacheable(self):
-        """ We only cache third party projects """
+        """We only cache third party projects"""
         return self.cache and self.m.shipit_project is None
 
     def was_cached(self):
@@ -396,6 +401,27 @@ class CleanCmd(SubCmd):
         clean_dirs(opts)
 
 
+@cmd("show-build-dir", "print the build dir for a given project")
+class ShowBuildDirCmd(ProjectCmdBase):
+    def run_project_cmd(self, args, loader, manifest):
+        if args.recursive:
+            manifests = loader.manifests_in_dependency_order()
+        else:
+            manifests = [manifest]
+
+        for m in manifests:
+            inst_dir = loader.get_project_build_dir(m)
+            print(inst_dir)
+
+    def setup_project_cmd_parser(self, parser):
+        parser.add_argument(
+            "--recursive",
+            help="print the transitive deps also",
+            action="store_true",
+            default=False,
+        )
+
+
 @cmd("show-inst-dir", "print the installation dir for a given project")
 class ShowInstDirCmd(ProjectCmdBase):
     def run_project_cmd(self, args, loader, manifest):
@@ -496,6 +522,12 @@ class BuildCmd(ProjectCmdBase):
                     if dep_build:
                         sources_changed = True
 
+                extra_cmake_defines = (
+                    json.loads(args.extra_cmake_defines)
+                    if args.extra_cmake_defines
+                    else {}
+                )
+
                 if sources_changed or reconfigure or not os.path.exists(built_marker):
                     if os.path.exists(built_marker):
                         os.unlink(built_marker)
@@ -508,6 +540,7 @@ class BuildCmd(ProjectCmdBase):
                         ctx,
                         loader,
                         final_install_prefix=loader.get_project_install_prefix(m),
+                        extra_cmake_defines=extra_cmake_defines,
                     )
                     builder.build(install_dirs, reconfigure=reconfigure)
 
@@ -635,6 +668,14 @@ class BuildCmd(ProjectCmdBase):
         parser.add_argument(
             "--schedule-type", help="Indicates how the build was activated"
         )
+        parser.add_argument(
+            "--extra-cmake-defines",
+            help=(
+                "Input json map that contains extra cmake defines to be used "
+                "when compiling the current project and all its deps. "
+                'e.g: \'{"CMAKE_CXX_FLAGS": "--bla"}\''
+            ),
+        )
 
 
 @cmd("fixup-dyn-deps", "Adjusts dynamic dependencies for packaging purposes")
@@ -696,12 +737,14 @@ class TestCmd(ProjectCmdBase):
                 builder = m.create_builder(
                     loader.build_opts, src_dir, build_dir, inst_dir, ctx, loader
                 )
+
                 builder.run_tests(
                     install_dirs,
                     schedule_type=args.schedule_type,
                     owner=args.test_owner,
                     test_filter=args.filter,
                     retry=args.retry,
+                    no_testpilot=args.no_testpilot,
                 )
 
             install_dirs.append(inst_dir)
@@ -718,6 +761,11 @@ class TestCmd(ProjectCmdBase):
             default=3,
             help="Number of immediate retries for failed tests "
             "(noop in continuous and testwarden runs)",
+        )
+        parser.add_argument(
+            "--no-testpilot",
+            help="Do not use Test Pilot even when available",
+            action="store_true",
         )
 
 
@@ -803,8 +851,6 @@ jobs:
             )
 
             getdeps = f"{py3} build/fbcode_builder/getdeps.py"
-            if not args.disallow_system_packages:
-                getdeps += " --allow-system-packages"
 
             out.write("  build:\n")
             out.write("    runs-on: %s\n" % runs_on)
@@ -819,10 +865,10 @@ jobs:
                 # coupled with the boost manifest
                 # This is the unusual syntax for setting an env var for the rest of
                 # the steps in a workflow:
-                # https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
+                # https://github.blog/changelog/2020-10-01-github-actions-deprecating-set-env-and-add-path-commands/
                 out.write("    - name: Export boost environment\n")
                 out.write(
-                    '      run: "echo ::set-env name=BOOST_ROOT::%BOOST_ROOT_1_69_0%"\n'
+                    '      run: "echo BOOST_ROOT=%BOOST_ROOT_1_69_0% >> %GITHUB_ENV%"\n'
                 )
                 out.write("      shell: cmd\n")
 
@@ -830,11 +876,6 @@ jobs:
                 # that we want it to use them!
                 out.write("    - name: Fix Git config\n")
                 out.write("      run: git config --system core.longpaths true\n")
-            elif not args.disallow_system_packages:
-                out.write("    - name: Install system deps\n")
-                out.write(
-                    f"      run: sudo {getdeps} install-system-deps --recursive {manifest.name}\n"
-                )
 
             projects = loader.manifests_in_dependency_order()
 
@@ -975,6 +1016,11 @@ def parse_args():
         help="Allow satisfying third party deps from installed system packages",
         action="store_true",
         default=False,
+    )
+    add_common_arg(
+        "--lfs-path",
+        help="Provide a parent directory for lfs when fbsource is unavailable",
+        default=None,
     )
 
     ap = argparse.ArgumentParser(

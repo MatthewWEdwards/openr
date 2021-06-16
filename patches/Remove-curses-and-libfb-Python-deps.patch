@@ -1,0 +1,41 @@
+From a11e395ad8c8117dd10d00ff9bdf4af98cbef5d8 Mon Sep 17 00:00:00 2001
+From: MatthewWEdwards <matthewedwards@fb.com>
+Date: Thu, 2 Sep 2021 10:07:40 -0700
+Subject: [PATCH] Remove curses and libfb Python deps
+
+---
+ openr/py/openr/cli/utils/utils.py | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/openr/py/openr/cli/utils/utils.py b/openr/py/openr/cli/utils/utils.py
+index de998159..435ce980 100644
+--- a/openr/py/openr/cli/utils/utils.py
++++ b/openr/py/openr/cli/utils/utils.py
+@@ -9,7 +9,6 @@
+
+
+ import copy
+-import curses
+ import datetime
+ import ipaddress
+ import json
+@@ -23,7 +22,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+ import bunch
+ import click
+-from libfb.py.decorators import memoize_forever
+ from openr.AllocPrefix import ttypes as alloc_types
+ from openr.clients.openr_client import get_openr_ctrl_client
+ from openr.Fib import ttypes as fib_types
+@@ -1810,8 +1808,8 @@ def get_area_id(client: OpenrCtrl.Client, area: str) -> str:
+     return area
+
+
+-@memoize_forever
+ def is_color_output_supported():
++    return False
+     """
+     Check if stdout is a terminal and supports colors
+     """
+--
+2.30.2

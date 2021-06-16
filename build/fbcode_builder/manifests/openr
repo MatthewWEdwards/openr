@@ -6,6 +6,7 @@ shipit_fbcode_builder = true
 
 [git]
 repo_url = https://github.com/facebook/openr.git
+rev = 4fba53eed4622b8576bd72156e20878ef6d18bc3
 
 [build.os=linux]
 builder = cmake

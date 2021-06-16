@@ -1,0 +1,25 @@
+From d4c220a556eb53a78f74c0ec00c3742dd3b65c10 Mon Sep 17 00:00:00 2001
+From: Ilango Purushothaman <ipurush@fb.com>
+Date: Wed, 21 Oct 2020 11:25:14 -0700
+Subject: [PATCH] Add CPE prefix type
+
+Summary:
+
+---
+ openr/if/Network.thrift | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/openr/if/Network.thrift b/openr/if/Network.thrift
+index a1844e1f..d224d316 100644
+--- a/openr/if/Network.thrift
++++ b/openr/if/Network.thrift
+@@ -107,6 +107,7 @@ enum PrefixType {
+   PREFIX_ALLOCATOR = 4,
+   BREEZE = 5,   // Prefixes injected via breeze
+   RIB = 6,
++  CPE = 7,
+
+   // Placeholder Types
+   TYPE_1 = 21,
+--
+2.30.2

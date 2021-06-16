@@ -1,0 +1,45 @@
+From 1c8ecf26f303b378962d04cdbe24dacb39621643 Mon Sep 17 00:00:00 2001
+From: Matthew Edwards <matthewedwards@fb.com>
+Date: Sun, 27 Jun 2021 20:48:24 +0000
+Subject: [PATCH] fbzmq TG
+
+---
+ CMakeLists.txt       | 6 +++---
+ fbzmq/CMakeLists.txt | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2b8950bd..6ef60a09 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,11 +8,11 @@
+ cmake_minimum_required(VERSION 3.2)
+ project(fbzmq)
+ 
+-set(CMAKE_CXX_STANDARD 17)
++set(CMAKE_CXX_STANDARD 20)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-noexcept-type")
+-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -fcoroutines")
+ 
+ include_directories(${CMAKE_SOURCE_DIR})
+ include_directories(${CMAKE_BINARY_DIR})
+diff --git a/fbzmq/CMakeLists.txt b/fbzmq/CMakeLists.txt
+index e17fd56d..04b2f019 100644
+--- a/fbzmq/CMakeLists.txt
++++ b/fbzmq/CMakeLists.txt
+@@ -154,7 +154,7 @@ install(FILES
+ # Unit-tests
+ #
+ 
+-option(BUILD_TESTS "BUILD_TESTS" ON)
++option(BUILD_TESTS "BUILD_TESTS" OFF)
+ 
+ if (BUILD_TESTS)
+ 
+-- 
+2.25.1
+

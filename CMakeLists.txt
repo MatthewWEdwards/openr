@@ -332,6 +332,7 @@ target_link_libraries(openrlib
   ${ZSTD}
   Folly::folly
   ${FOLLY_EXCEPTION_TRACER}
+  ${BENCHMARK}
   ${SODIUM}
   ${RE2}
   ${Boost_LIBRARIES}
