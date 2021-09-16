@@ -83,5 +83,3 @@ python3 openr/py/setup.py build -j20
 mkdir /libs/
 
 python3 /src/build/link.py
-
-/src/build/package_breeze.sh

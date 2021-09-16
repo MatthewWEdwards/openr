@@ -33,6 +33,7 @@ from openr.cli.clis import (
     tech_support,
 )
 from openr.cli.utils.options import OPTIONS, breeze_option, str2cert
+from openr.cli.clis import fib_vpp_cli_lib
 
 
 click.disable_unicode_literals_warning = True
@@ -101,6 +102,7 @@ def get_breeze_cli():
     cli.add_command(prefix_mgr.PrefixMgrCli().prefixmgr)
     cli.add_command(tech_support.TechSupportCli().tech_support)
     cli.add_command(openr.OpenrCli().openr)
+    cli.add_command(fib_vpp_cli_lib.vpp)
     plugin.plugin_start(cli)
     return cli
 

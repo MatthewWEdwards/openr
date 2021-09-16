@@ -172,6 +172,11 @@ if failures == 0:
 else:
     sys.exit(1)
 
+for object_file, shared_object in thrift_lib_paths.items():
+    procs += [Popen(["ln", "-sfr", f"{shared_object}", f"{shared_object[:-2]}"])]
+    for proc in procs:
+        proc.wait()
+
 procs = []
 object_dirs = ["/thrift", "/folly", "openr-thrift", "fbzmq-thrift", "fb303-thrift"]
 for o in object_dirs:
